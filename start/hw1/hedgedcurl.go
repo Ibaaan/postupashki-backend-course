@@ -58,9 +58,7 @@ func main() {
 			hadTimeout = true
 		}
 	}
-
 	cancel()
-	close(done)
 
 	if hadTimeout {
 		os.Exit(228)
@@ -100,19 +98,19 @@ func getURLWithTimeout(ctx context.Context, url string, done chan<- Resp, clinet
 		bytes.NewBuffer(bu),
 	)
 	if err != nil {
-		done <- Resp{err: err}
+		done <- Resp{url: url, err: err}
 		return
 	}
 
 	resp, err := clinet.Do(req)
 	if err != nil {
-		done <- Resp{err: err}
+		done <- Resp{url: url, err: err}
 		return
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		done <- Resp{}
+		done <- Resp{url: url, err: err}
 		return
 	}
 
