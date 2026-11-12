@@ -60,11 +60,12 @@ func main() {
 	}
 	cancel()
 
-	if hadTimeout {
-		os.Exit(228)
-	}
 	if !succeded {
-		os.Exit(1)
+		if hadTimeout {
+			os.Exit(228)
+		} else {
+			os.Exit(1)
+		}
 	}
 }
 
