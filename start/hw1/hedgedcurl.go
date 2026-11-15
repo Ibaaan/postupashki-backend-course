@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -39,12 +38,12 @@ func main() {
 		go getURLWithTimeout(ctx, v, done, &client)
 	}
 
-	hadTimeout := false
 	succeded := false
+	results := make(map[string]error)
 
 	for i := 0; i < len(args); i++ {
 		response := <-done
-		if response.r != nil && response.r.StatusCode >= 200 && response.r.StatusCode < 300 {
+		if response.r != nil {
 			succeded = true
 			fmt.Printf("%s %s\nheaders: %v\nbody:%s\n",
 				response.r.Proto,
@@ -54,13 +53,32 @@ func main() {
 			)
 			break
 		}
-		if response.err != nil && errors.Is(response.err, context.DeadlineExceeded) {
-			hadTimeout = true
-		}
+		results[response.url] = response.err
+
 	}
 	cancel()
 
 	if !succeded {
+		if len(results) == 0 {
+			fmt.Fprintln(os.Stderr,
+				"No URLs provided. Specify at least one URL. Use --help for usage.")
+			os.Exit(1)
+		}
+
+		hadTimeout := false
+
+		fmt.Fprintln(os.Stderr, "All requests failed:")
+		for url, err := range results {
+			var status string
+			if errors.Is(err, context.DeadlineExceeded) {
+				hadTimeout = true
+				status = "time out"
+			} else {
+				status = "failed"
+			}
+			fmt.Fprintf(os.Stderr, "  %s: %s\n", url, status)
+		}
+
 		if hadTimeout {
 			os.Exit(228)
 		} else {
@@ -110,13 +128,7 @@ func getURLWithTimeout(ctx context.Context, url string, done chan<- Resp, clinet
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	bu := make([]byte, 0)
-	req, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodGet,
-		url,
-		bytes.NewBuffer(bu),
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		done <- Resp{url: url, err: err}
 		return
