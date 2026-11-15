@@ -17,7 +17,9 @@ func main() {
 	args := os.Args[1:]
 
 	if len(args) == 0 {
-		os.Exit(0)
+		fmt.Fprintln(os.Stderr,
+			"No URLs provided. Specify at least one URL. Use --help for usage.")
+		os.Exit(1)
 	}
 
 	switch args[0] {
@@ -45,7 +47,7 @@ func main() {
 	}
 
 	succedded := false
-	results := make(map[string]error)
+	results := make([]Resp, len(args))
 
 	for i := 0; i < len(args); i++ {
 		response := <-done
@@ -59,7 +61,7 @@ func main() {
 			)
 			break
 		}
-		results[response.url] = response.err
+		results = append(results, response)
 
 	}
 	cancel()
@@ -68,15 +70,15 @@ func main() {
 		hadTimeout := false
 
 		fmt.Fprintln(os.Stderr, "All requests failed:")
-		for url, err := range results {
+		for _, r := range results {
 			var status string
-			if errors.Is(err, context.DeadlineExceeded) {
+			if errors.Is(r.err, context.DeadlineExceeded) {
 				hadTimeout = true
-				status = "time out"
+				status = "timed out"
 			} else {
 				status = "failed"
 			}
-			fmt.Fprintf(os.Stderr, "  %s: %s (%v)\n", url, status, err)
+			fmt.Fprintf(os.Stderr, "  %s: %s (%v)\n", r.url, status, r.err)
 		}
 
 		if hadTimeout {
