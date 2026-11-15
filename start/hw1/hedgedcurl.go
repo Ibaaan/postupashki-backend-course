@@ -31,6 +31,12 @@ func main() {
 		args = setTimeout(args)
 	}
 
+	if len(args) == 0 {
+		fmt.Fprintln(os.Stderr,
+			"No URLs provided. Specify at least one URL. Use --help for usage.")
+		os.Exit(1)
+	}
+
 	done := make(chan Resp, len(args))
 	client := http.Client{}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -38,13 +44,13 @@ func main() {
 		go getURLWithTimeout(ctx, v, done, &client)
 	}
 
-	succeded := false
+	succedded := false
 	results := make(map[string]error)
 
 	for i := 0; i < len(args); i++ {
 		response := <-done
 		if response.r != nil {
-			succeded = true
+			succedded = true
 			fmt.Printf("%s %s\nheaders: %v\nbody:%s\n",
 				response.r.Proto,
 				response.r.Status,
@@ -58,13 +64,7 @@ func main() {
 	}
 	cancel()
 
-	if !succeded {
-		if len(results) == 0 {
-			fmt.Fprintln(os.Stderr,
-				"No URLs provided. Specify at least one URL. Use --help for usage.")
-			os.Exit(1)
-		}
-
+	if !succedded {
 		hadTimeout := false
 
 		fmt.Fprintln(os.Stderr, "All requests failed:")
@@ -76,7 +76,7 @@ func main() {
 			} else {
 				status = "failed"
 			}
-			fmt.Fprintf(os.Stderr, "  %s: %s\n", url, status)
+			fmt.Fprintf(os.Stderr, "  %s: %s (%v)\n", url, status, err)
 		}
 
 		if hadTimeout {
